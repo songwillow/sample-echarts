@@ -154,7 +154,7 @@ const Chart = ({ option }: { option: ChartOptions }) => {
             height = numberOfMultiState * 64;
             secondPoint = secondPoint + height;
           } else {
-            height = numberOfAnalog * 400;
+            height = 400;
             secondPoint = secondPoint + height;
           }
           if (index === graphTypes.length - 1) {
@@ -177,6 +177,7 @@ const Chart = ({ option }: { option: ChartOptions }) => {
     });
     return chartHeights;
   };
+
   const chartHeight = getChartHeight();
   const totalGraphHeight =
     chartHeight[chartHeight.length - 1].height +

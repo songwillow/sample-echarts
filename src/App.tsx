@@ -17,6 +17,18 @@ function App() {
         type: "line",
       },
       {
+        sensor: "T1Sensor4",
+        data: [
+          [0, 2],
+          [1, 0],
+          [2, 1],
+          [3, 4],
+          [4, 1],
+        ],
+        graphType: "analog",
+        type: "line",
+      },
+      {
         sensor: "T1Sensor3",
         data: [
           [0, 0, 1],
