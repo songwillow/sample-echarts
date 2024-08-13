@@ -47,7 +47,7 @@ const trySort = (arr: string[]) => {
   });
 };
 
-const Chart = <T,>({ option }: { option: ChartOptions<T> }) => {
+const CustomChart = <T,>({ option }: { option: ChartOptions<T> }) => {
   const echartsDomId = `graph-container-${option.id}`;
   const [echart, setEchart] = useState<echarts.ECharts | null>(null);
   const graphContainer = useRef<HTMLElement | null>();
@@ -105,204 +105,6 @@ const Chart = <T,>({ option }: { option: ChartOptions<T> }) => {
     });
 
     return visualMaps;
-  };
-
-  const getXAxis = (): echarts.EChartOption.XAxis[] => {
-    return assetGroupByGraphTypeKeys.map((a, index) => ({
-      gridIndex: index,
-      type: "time",
-      boundaryGap: false,
-    }));
-  };
-
-  const getYAxis = (): echarts.EChartOption.YAxis[] => {
-    return assetGroupByGraphTypeKeys.map((a, index) => {
-      let option: echarts.EChartOption.YAxis = {};
-      if (a === "binary") {
-        option = {
-          ...option,
-          axisLabel: {
-            formatter: "bool",
-          },
-          axisLine: {
-            onZero: false,
-          },
-        };
-      } else if (a === "multistate") {
-        option = {
-          ...option,
-          axisLabel: {
-            formatter: "state",
-          },
-          axisLine: {
-            onZero: false,
-          },
-        };
-      } else {
-        option = {
-          name: a,
-          nameLocation: "middle",
-          type: "value",
-          splitNumber: 3,
-          boundaryGap: true,
-        };
-      }
-      return {
-        type: "category",
-        gridIndex: index,
-        axisLabel: {
-          ...option.axisLabel,
-          color: "#838383",
-        },
-        ...option,
-      };
-    });
-  };
-
-  const getDataset = () => {
-    return assets.map((asset) => {
-      let option: echarts.EChartOption.Dataset = {};
-
-      if (asset.graphType !== "analog") {
-        option = {
-          ...option,
-          dimensions: ["time", "row", "value"],
-        };
-      } else {
-        option = {
-          ...option,
-          dimensions: ["time", "value", "confidence", "lower"],
-        };
-      }
-
-      return {
-        ...option,
-        source: asset.data,
-      };
-    });
-  };
-
-  console.log(getDataset());
-
-  const getSeries = () => {
-    let lastGraphType: GraphType | null = null;
-    let currentIndex = -1;
-    return assets.flatMap<echarts.EChartOption.Series>((sensor, index) => {
-      if (sensor.graphType !== lastGraphType) {
-        lastGraphType = sensor.graphType;
-        currentIndex++;
-      }
-      let options: echarts.EChartOption.Series[] = [];
-
-      if (sensor.graphType === "binary") {
-        options = [
-          {
-            name: sensor.sensor,
-            type: "heatmap",
-            xAxisIndex: currentIndex,
-            yAxisIndex: currentIndex,
-            datasetIndex: index,
-            label: {
-              show: false,
-            },
-            itemStyle: {
-              color: sensor.color,
-            },
-          },
-        ];
-      } else if (sensor.graphType === "multistate") {
-        options = [
-          {
-            name: sensor.sensor,
-            type: "heatmap",
-            xAxisIndex: currentIndex,
-            yAxisIndex: currentIndex,
-            datasetIndex: index,
-            label: {
-              show: false,
-            },
-            itemStyle: {
-              color: sensor.color,
-            },
-          },
-        ];
-      }
-      if (sensor.graphType === "analog") {
-        const unitIndex = assetGroupByGraphTypeKeys.findIndex(
-          (d) => d === `${sensor.graphType}${sensor.unit}`
-        );
-
-        const axisIndex = unitIndex !== -1 ? unitIndex : currentIndex;
-
-        options = [
-          {
-            name: sensor.sensor,
-            type: "line",
-            xAxisIndex: axisIndex,
-            yAxisIndex: axisIndex,
-            datasetIndex: index,
-            label: {
-              show: false,
-            },
-            markArea: {
-              itemStyle: {
-                color: "red",
-              },
-              data: [
-                [
-                  {
-                    xAxis: "2020-01-01 12:00",
-                  },
-                  {
-                    xAxis: "2020-01-02 15:30",
-                  },
-                ],
-              ],
-            },
-            stack: `confidence-band-${sensor.sensor}`,
-            itemStyle: {
-              color: sensor.color,
-            },
-          },
-          {
-            type: "line",
-            name: `${sensor.sensor}-upper-bound`,
-            xAxisIndex: axisIndex,
-            yAxisIndex: axisIndex,
-            datasetIndex: index,
-            lineStyle: {
-              opacity: 0,
-            },
-            encode: {
-              y: "confidence",
-            },
-            areaStyle: {
-              color: sensor.color,
-            },
-            stack: `confidence-band-${sensor.sensor}`,
-            symbol: "none",
-            showSymbol: false,
-          },
-          {
-            type: "line",
-            name: `${sensor.sensor}-lower-bound`,
-            xAxisIndex: axisIndex,
-            yAxisIndex: axisIndex,
-            datasetIndex: index,
-            encode: {
-              y: "lower",
-            },
-            lineStyle: {
-              opacity: 0,
-            },
-            stack: `confidence-band-${sensor.sensor}`,
-            symbol: "none",
-            showSymbol: false,
-          },
-        ];
-      }
-      return options;
-    });
   };
 
   const getChartHeight = () => {
@@ -405,6 +207,83 @@ const Chart = <T,>({ option }: { option: ChartOptions<T> }) => {
       initializeECharts(graphContainer.current);
     }
 
+    const renderItem = (
+      params: echarts.EChartOption.SeriesCustom.RenderItemParams,
+      api: echarts.EChartOption.SeriesCustom.RenderItemApi
+    ): echarts.EChartOption.SeriesCustom.RenderItem => {
+      const categoryIndex = api.value(0);
+      const start = api.coord([api.value(1), categoryIndex]);
+      const end = api.coord([api.value(2), categoryIndex]);
+
+      console.log(api.value(1));
+
+      const height = api.size([0, 1])[1];
+      const width = end[0] - start[0];
+      const coordSys = params.coordSys!;
+      const rectShape = echarts.graphic.clipRectByRect(
+        {
+          x: start[0] - width / 2,
+          y: start[1] - height / 2,
+          width: width,
+          height: height,
+        },
+        {
+          x: coordSys.x!,
+          y: coordSys.y!,
+          width: coordSys.width!,
+          height: coordSys.height!,
+        }
+      );
+      return (
+        rectShape && {
+          type: "rect",
+          shape: rectShape,
+          ignore: isNaN(api.value(3)),
+          style: api.style({}),
+          emphasisDisabled: true,
+          transition: ["shape"],
+        }
+      );
+    };
+
+    let baseTime = new Date("2020-01-01 00:00").getTime();
+
+    const data = [
+      ["2020-01-01 00:00", 0, 0],
+      ["2020-01-01 00:15", 0, 1],
+      ["2020-01-01 00:30", 0, 1],
+      ["2020-01-01 00:45", 0, 0],
+      ["2020-01-01 03:00", 0, "-"],
+      ["2020-01-02 00:00", 0, 0],
+      //   ["2020-01-01", 1, 0],
+      //   ["2020-01-02", 1, 1],
+      //   ["2020-01-03", 1, 1],
+      //   ["2020-01-04", 1, 0],
+      //   ["2020-01-05", 1, 0],
+    ];
+    // const x = [];
+    // const durationGranulairty = 900000;
+    // for (let i = 0; i < data.length; i++) {
+    //   x.push({
+    //     value: [
+    //       data[i][1],
+    //       baseTime,
+    //       (baseTime += durationGranulairty),
+    //       data[i][2],
+    //     ],
+    //     itemStyle: {
+    //       color: "#7b9ce1",
+    //       opacity: data[i][2] === 0 ? 0.5 : 1,
+    //     },
+    //   });
+
+    //   if (i === data.length - 1) {
+    //     baseTime = new Date(data[data.length - 1][0]).getTime();
+    //     continue;
+    //   }
+    //   baseTime = new Date(data[i + 1][0]).getTime();
+    // }
+
     echart.setOption({
       title: [
         {
@@ -415,22 +294,31 @@ const Chart = <T,>({ option }: { option: ChartOptions<T> }) => {
         },
       ],
       backgroundColor: "#242424",
-      grid: chartHeights.map((chartHeight) => ({
-        top: chartHeight.start,
-        left: 40,
-        right: 16,
-        height: chartHeight.height,
-        show: true,
-        borderWidth: 1,
-        borderColor: "rgba(128, 128, 128, 0.5)",
-      })),
       tooltip: {
         trigger: "axis",
+        formatter: (params) => {
+          console.log(params);
+        },
+        axisPointer: {
+          axis: "x",
+          snap: true,
+        },
       },
-      dataZoom: [{}],
-      xAxis: getXAxis(),
-      yAxis: getYAxis(),
-      visualMap: getVisualMap(),
+      //   dataZoom: [{}],
+      xAxis: [
+        {
+          type: "time",
+          min: "dataMin",
+          max: "dataMax",
+        },
+      ],
+      yAxis: [
+        {
+          type: "value",
+          minInterval: 2,
+        },
+      ],
+      //   visualMap: getVisualMap(),
       legend: option.showLegend
         ? {
             textStyle: {
@@ -440,12 +328,60 @@ const Chart = <T,>({ option }: { option: ChartOptions<T> }) => {
             left: 0,
           }
         : undefined,
-      dataset: getDataset(),
-      series: getSeries(),
+      // dataset: [
+      //   {
+      //     dimensions: ["row", "start", "end", "value"],
+      //     source: [
+      //       [0, 1577797200000, 1577798100000, 0, { A: 1 }],
+      //       [0, 1577798100000, 1577799000000, 1, { A: 1 }],
+      //       [0, 1577799000000, 1577799900000, 1, { A: 1 }],
+      //       [0, 1577799900000, 1577800800000, 0, { A: 1 }],
+      //       [0, 1577808000000, 1577808900000, "-", { A: 1 }],
+      //       [0, 1577883600000, 1577884500000, 0, { A: 1 }],
+      //     ],
+      //   },
+      //   {
+      //     dimensions: ["row", "start", "end", "value"],
+      //     source: [
+      //       [1, 1577797200000, 1577798100000, 0, { A: 1 }],
+      //       [1, 1577798100000, 1577799000000, 1, { A: 1 }],
+      //       [1, 1577799000000, 1577799900000, 1, { A: 1 }],
+      //       [1, 1577799900000, 1577800800000, 0, { A: 1 }],
+      //       [1, 1577808000000, 1577808900000, "-", { A: 1 }],
+      //       [1, 1577883600000, 1577884500000, 0, { A: 1 }],
+      //     ],
+      //   },
+      // ],
+      series: [
+        {
+          type: "line",
+          data: [
+            ["2020-01-01", 1],
+            ["2020-01-02", 0],
+            ["2020-01-03", 0.4],
+            ["2020-01-04", 3],
+            ["2020-01-05", 2],
+          ],
+        },
+        // {
+        //   type: "custom",
+        //   renderItem: renderItem,
+        //   datasetIndex: 0,
+        //   stack: "binary",
+        //   itemStyle: {
+        //     opacity: 0.8,
+        //   },
+        //   encode: {
+        //     x: ["start", "end"],
+        //     y: "time",
+        //     value: "value",
+        //   },
+        // },
+      ],
     });
   }, [echart]);
 
   return <div id={echartsDomId}></div>;
 };
 
-export default Chart;
+export default CustomChart;
